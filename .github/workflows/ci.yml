@@ -34,6 +34,9 @@ jobs:
       artifacts_version: ${{ env.ARTIFACTS_VERSION }}
       info_version: ${{ env.INFO_VERSION }}
   build_and_upload:
+    permissions:
+      id-token: write
+      contents: write
     uses: cfurrow/ersatztv-legacy/.github/workflows/artifacts.yml@main
     needs: calculate_version
     with:

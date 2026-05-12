@@ -1,6 +1,7 @@
 ﻿using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Emby;
+using ErsatzTV.Core.Errors;
 using ErsatzTV.Core.Interfaces.Emby;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Scanner.Core.Interfaces;
@@ -86,7 +87,14 @@ public class SynchronizeEmbyLibraryByIdHandler : IRequestHandler<SynchronizeEmby
 
             foreach (BaseError error in result.LeftToSeq())
             {
-                _logger.LogError("Error synchronizing emby library: {Error}", error);
+                if (error is ScanCanceled)
+                {
+                    _logger.LogDebug("Emby library scan was canceled: {Library}", parameters.Library.Name);
+                }
+                else
+                {
+                    _logger.LogError("Error synchronizing emby library: {Error}", error);
+                }
             }
 
             return result.Map(_ => parameters.Library.Name);

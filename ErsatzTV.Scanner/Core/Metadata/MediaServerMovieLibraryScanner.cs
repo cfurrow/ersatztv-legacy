@@ -154,10 +154,19 @@ public abstract class MediaServerMovieLibraryScanner<TConnectionParameters, TLib
             {
                 foreach (BaseError error in maybeMovie.LeftToSeq())
                 {
-                    _logger.LogWarning(
-                        "Error processing movie {Title}: {Error}",
-                        incoming.MovieMetadata.Head().Title,
-                        error.Value);
+                    if (error is MediaFileAlreadyExists)
+                    {
+                        _logger.LogDebug(
+                            "Skipping movie {Title}: already indexed",
+                            incoming.MovieMetadata.Head().Title);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Error processing movie {Title}: {Error}",
+                            incoming.MovieMetadata.Head().Title,
+                            error.Value);
+                    }
                 }
 
                 continue;

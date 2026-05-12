@@ -5,22 +5,22 @@ updates:
     schedule:
       interval: daily
     assignees:
-      - jasongdove
+      - cfurrow
   - package-ecosystem: docker
     directory: "/docker"
     schedule:
       interval: daily
     assignees:
-      - jasongdove
+      - cfurrow
   - package-ecosystem: docker
     directory: "/docker/nvidia"
     schedule:
       interval: daily
     assignees:
-      - jasongdove
+      - cfurrow
   - package-ecosystem: docker
     directory: "/docker/vaapi"
     schedule:
       interval: daily
     assignees:
-      - jasongdove
+      - cfurrow

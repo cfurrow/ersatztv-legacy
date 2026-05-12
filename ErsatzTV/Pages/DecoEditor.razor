@@ -203,6 +203,7 @@
                 <MudSelectItem Value="CollectionType.Playlist">Playlist</MudSelectItem>
             </MudSelect>
         </MudStack>
+        <div @key="_selectedBreakContent.CollectionType">
         @if (_selectedBreakContent.CollectionType == CollectionType.Collection)
         {
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
@@ -326,6 +327,7 @@
                 </MudSelect>
             </MudStack>
         }
+        </div>
     }
 }
 <MudText Typo="Typo.h5" Class="mt-10 mb-2">Default Filler</MudText>
@@ -356,6 +358,7 @@
         <MudSelectItem Value="CollectionType.SmartCollection">Smart Collection</MudSelectItem>
     </MudSelect>
 </MudStack>
+<div @key="_deco.DefaultFillerCollectionType">
 @if (_deco.DefaultFillerCollectionType == CollectionType.Collection)
 {
     <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
@@ -472,6 +475,7 @@
         </MudAutocomplete>
     </MudStack>
 }
+</div>
 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
     <div class="d-flex">
         <MudText>Trim To Fit</MudText>
@@ -511,6 +515,7 @@
         <MudSelectItem Value="CollectionType.SmartCollection">Smart Collection</MudSelectItem>
     </MudSelect>
 </MudStack>
+<div @key="_deco.DeadAirFallbackCollectionType">
 @if (_deco.DeadAirFallbackCollectionType == CollectionType.Collection)
 {
     <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
@@ -627,6 +632,7 @@
         </MudAutocomplete>
     </MudStack>
 }
+</div>
 </MudContainer>
 </div>
 </MudForm>

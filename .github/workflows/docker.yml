@@ -29,19 +29,19 @@ jobs:
         include:
           - name: amd64
             os: ubuntu-latest
-            path: ''
+            script: scripts/build-docker-amd64.sh
+            next_target: linux-x64
             suffix: '-amd64'
-            platform: 'linux/amd64'
           - name: arm32v7
             os: ubuntu-latest
-            path: 'arm32v7/'
+            script: scripts/build-docker-arm32v7.sh
+            next_target: linux-arm
             suffix: '-arm'
-            platform: 'linux/arm/v7'
           - name: arm64
             os: ubuntu-24.04-arm
-            path: 'arm64/'
+            script: scripts/build-docker-arm64.sh
+            next_target: linux-arm64
             suffix: '-arm64'
-            platform: 'linux/arm64'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,12 +53,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          case "${{ matrix.name }}" in
-            amd64) TARGET="linux-x64" ;;
-            arm32v7) TARGET="linux-arm" ;;
-            arm64) TARGET="linux-arm64" ;;
-          esac
-          gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-${TARGET}.tar.gz" --dir next-download
+          gh release download develop --repo ErsatzTV/next \
+            --pattern "ersatztv-next-*-${{ matrix.next_target }}.tar.gz" \
+            --dir next-download
           mkdir next-extracted
           tar xzvf next-download/*.tar.gz -C next-extracted --strip-components 1
           mv next-extracted/ersatztv-channel .
@@ -85,22 +82,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./docker/${{ matrix.path }}Dockerfile
-          push: true
-          provenance: false
-          platforms: ${{ matrix.platform }}
-          build-args: |
-            INFO_VERSION=${{ inputs.info_version }}-docker${{ matrix.suffix }}
-          outputs: |
-            type=image,name=cfurrow/ersatztv,name-canonical=true,push-by-digest=true
-            type=image,name=ghcr.io/cfurrow/ersatztv,name-canonical=true,push-by-digest=true
+        run: |
+          ${{ matrix.script }} \
+            --info-version "${{ inputs.info_version }}-docker${{ matrix.suffix }}" \
+            --push-by-digest \
+            --image-name cfurrow/ersatztv \
+            --image-name ghcr.io/cfurrow/ersatztv \
+            --metadata-file metadata.json
 
       - name: Save digest to artifact
-        run: echo ${{ steps.build.outputs.digest }} > digest.txt
+        run: jq -r '."containerimage.digest"' metadata.json > digest.txt
 
       - name: Upload digest artifact
         uses: actions/upload-artifact@v4

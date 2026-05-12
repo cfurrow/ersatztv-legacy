@@ -472,12 +472,23 @@ public abstract class MediaServerTelevisionLibraryScanner<TConnectionParameters,
                 {
                     foreach (BaseError error in maybeEpisode.LeftToSeq())
                     {
-                        _logger.LogWarning(
-                            "Error processing episode {Title} s{SeasonNumber:00}e{EpisodeNumber:00}: {Error}",
-                            show.ShowMetadata.Head().Title,
-                            season.SeasonNumber,
-                            incoming.EpisodeMetadata.Head().EpisodeNumber,
-                            error.Value);
+                        if (error is MediaFileAlreadyExists)
+                        {
+                            _logger.LogDebug(
+                                "Skipping episode {Title} s{SeasonNumber:00}e{EpisodeNumber:00}: already indexed",
+                                show.ShowMetadata.Head().Title,
+                                season.SeasonNumber,
+                                incoming.EpisodeMetadata.Head().EpisodeNumber);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Error processing episode {Title} s{SeasonNumber:00}e{EpisodeNumber:00}: {Error}",
+                                show.ShowMetadata.Head().Title,
+                                season.SeasonNumber,
+                                incoming.EpisodeMetadata.Head().EpisodeNumber,
+                                error.Value);
+                        }
                     }
 
                     continue;

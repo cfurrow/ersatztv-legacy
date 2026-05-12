@@ -1,5 +1,6 @@
 ﻿using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Errors;
 using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Jellyfin;
@@ -86,7 +87,14 @@ public class
 
             foreach (BaseError error in result.LeftToSeq())
             {
-                _logger.LogError("Error synchronizing jellyfin library: {Error}", error);
+                if (error is ScanCanceled)
+                {
+                    _logger.LogDebug("Jellyfin library scan was canceled: {Library}", parameters.Library.Name);
+                }
+                else
+                {
+                    _logger.LogError("Error synchronizing jellyfin library: {Error}", error);
+                }
             }
 
             return result.Map(_ => parameters.Library.Name);

@@ -1,5 +1,6 @@
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Errors;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Plex;
@@ -96,7 +97,14 @@ public class SynchronizePlexLibraryByIdHandler : IRequestHandler<SynchronizePlex
 
             foreach (BaseError error in result.LeftToSeq())
             {
-                _logger.LogError("Error synchronizing plex library: {Error}", error);
+                if (error is ScanCanceled)
+                {
+                    _logger.LogDebug("Plex library scan was canceled: {Library}", parameters.Library.Name);
+                }
+                else
+                {
+                    _logger.LogError("Error synchronizing plex library: {Error}", error);
+                }
             }
 
             return result.Map(_ => parameters.Library.Name);

@@ -163,6 +163,7 @@
             <MudSelectItem Value="CollectionType.SearchQuery">Search Query</MudSelectItem>
         </MudSelect>
     </MudStack>
+    <div @key="_selectedItem.CollectionType">
     @if (_selectedItem.CollectionType == CollectionType.Collection)
     {
         <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
@@ -271,6 +272,7 @@
             </MudAutocomplete>
         </MudStack>
     }
+    </div>
 
     <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
         <div class="d-flex">

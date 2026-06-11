@@ -15,6 +15,7 @@ namespace ErsatzTV.Infrastructure.Streaming.Graphics;
 public class MotionElement(
     MotionGraphicsElement motionElement,
     Option<string> ffprobePath,
+    Option<string> ffmpegPath,
     ILocalStatisticsProvider localStatisticsProvider,
     ILogger logger)
     : GraphicsElement, IDisposable
@@ -24,7 +25,6 @@ public class MotionElement(
     private int _frameSize;
     private PipeReader _pipeReader;
     private SKPointI _point;
-    private SKBitmap _canvasBitmap;
     private SKBitmap _motionFrameBitmap;
     private TimeSpan _startTime;
     private TimeSpan _endTime;
@@ -54,7 +54,6 @@ public class MotionElement(
 
         _cancellationTokenSource?.Dispose();
 
-        _canvasBitmap?.Dispose();
         _motionFrameBitmap?.Dispose();
     }
 
@@ -117,12 +116,6 @@ public class MotionElement(
             var targetSize = new Resolution { Width = scaledWidth, Height = scaledHeight };
 
             _frameSize = targetSize.Width * targetSize.Height * 4;
-
-            _canvasBitmap = new SKBitmap(
-                context.FrameSize.Width,
-                context.FrameSize.Height,
-                SKColorType.Bgra8888,
-                SKAlphaType.Unpremul);
 
             _motionFrameBitmap = new SKBitmap(
                 targetSize.Width,
@@ -193,7 +186,7 @@ public class MotionElement(
 
             _state = MotionElementState.PlayingIn;
 
-            Command command = Cli.Wrap("ffmpeg")
+            Command command = Cli.Wrap(await ffmpegPath.IfNoneAsync("ffmpeg"))
                 .WithArguments(arguments)
                 .WithWorkingDirectory(FileSystemLayout.TempFilePoolFolder)
                 .WithStandardOutputPipe(PipeTarget.ToStream(pipe.Writer.AsStream()));
@@ -234,7 +227,7 @@ public class MotionElement(
             {
                 if (contentTime <= _endTime)
                 {
-                    return new PreparedElementImage(_canvasBitmap, SKPointI.Empty, 1.0f, ZIndex, false);
+                    return new PreparedElementImage(_motionFrameBitmap, _point, 1.0f, ZIndex, false);
                 }
 
                 _state = MotionElementState.Finished;
@@ -259,18 +252,11 @@ public class MotionElement(
                             sequence.CopyTo(pixmap.GetPixelSpan());
                         }
 
-                        _canvasBitmap.Erase(SKColors.Transparent);
-
-                        using (var canvas = new SKCanvas(_canvasBitmap))
-                        {
-                            canvas.DrawBitmap(_motionFrameBitmap, _point);
-                        }
-
                         // mark this frame as consumed
                         consumed = sequence.End;
 
                         // we are done, return the frame
-                        return new PreparedElementImage(_canvasBitmap, SKPointI.Empty, 1.0f, ZIndex, false);
+                        return new PreparedElementImage(_motionFrameBitmap, _point, 1.0f, ZIndex, false);
                     }
 
                     if (readResult.IsCompleted)
@@ -280,7 +266,7 @@ public class MotionElement(
                         if (motionElement.EndBehavior is MotionEndBehavior.Hold)
                         {
                             _state = MotionElementState.Holding;
-                            return new PreparedElementImage(_canvasBitmap, SKPointI.Empty, 1.0f, ZIndex, false);
+                            return new PreparedElementImage(_motionFrameBitmap, _point, 1.0f, ZIndex, false);
                         }
                         else
                         {

@@ -11,12 +11,18 @@ using ErsatzTV.Application.Subtitles.Queries;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
+using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Extensions;
 using ErsatzTV.FFmpeg;
+using ErsatzTV.Infrastructure.Data;
+using ErsatzTV.Infrastructure.Scheduling;
 using Flurl;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Primitives;
+using Newtonsoft.Json;
 
 namespace ErsatzTV.Controllers;
 
@@ -26,14 +32,23 @@ public class InternalController : StreamingControllerBase
 {
     private readonly ILogger<InternalController> _logger;
     private readonly IMediator _mediator;
+    private readonly IDbContextFactory<TvContext> _dbContextFactory;
+    private readonly IDynamicPlayoutItemService _dynamicPlayoutItemService;
+    private readonly IPlayoutItemConverter _playoutItemConverter;
 
     public InternalController(
         IGraphicsEngine graphicsEngine,
         IMediator mediator,
+        IDbContextFactory<TvContext> dbContextFactory,
+        IDynamicPlayoutItemService dynamicPlayoutItemService,
+        IPlayoutItemConverter playoutItemConverter,
         ILogger<InternalController> logger)
         : base(graphicsEngine, logger)
     {
         _mediator = mediator;
+        _dbContextFactory = dbContextFactory;
+        _dynamicPlayoutItemService = dynamicPlayoutItemService;
+        _playoutItemConverter = playoutItemConverter;
         _logger = logger;
     }
 
@@ -45,6 +60,23 @@ public class InternalController : StreamingControllerBase
 
     [HttpGet("ffmpeg/stream/{channelNumber}")]
     public Task<IActionResult> GetStream(string channelNumber) => GetTsLegacyStream(channelNumber);
+
+    [HttpGet("ffmpeg/music-video-credits/{playoutItemId:int}")]
+    public async Task<IActionResult> GetMusicVideoCredits(
+        int playoutItemId,
+        [FromQuery] long? seekToMs,
+        CancellationToken cancellationToken)
+    {
+        Option<string> maybeCreditsFile = await _mediator.Send(
+            new GetMusicVideoCreditsByPlayoutItemId(playoutItemId, Optional(seekToMs)),
+            cancellationToken);
+        foreach (string creditsFile in maybeCreditsFile)
+        {
+            return new PhysicalFileResult(creditsFile, "text/x-ssa");
+        }
+
+        return NotFound();
+    }
 
     [HttpGet("ffmpeg/remote-stream/{remoteStreamId}")]
     public async Task<IActionResult> GetRemoteStream(int remoteStreamId, CancellationToken cancellationToken)
@@ -248,6 +280,54 @@ public class InternalController : StreamingControllerBase
         }
 
         return new NotFoundResult();
+    }
+
+    [HttpGet("/media/fallback")]
+    public async Task<IActionResult> GetFallbackPlayoutJson(CancellationToken cancellationToken)
+    {
+        if (!Request.Headers.TryGetValue("x-etv-channel", out StringValues channelNumber) || channelNumber.Count != 1)
+        {
+            return BadRequest();
+        }
+
+        if (!Request.Headers.TryGetValue("x-etv-now", out StringValues nowString) || nowString.Count != 1 ||
+            !DateTimeOffset.TryParse(nowString[0], out DateTimeOffset now))
+        {
+            return BadRequest();
+        }
+
+        await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Option<Channel> maybeChannel = await dbContext.Channels
+            .SingleOrDefaultAsync(c => c.Number == channelNumber[0], cancellationToken)
+            .Map(Optional);
+
+        foreach (var channel in maybeChannel)
+        {
+            Either<BaseError, PlayoutItemWithPath> maybePlayoutItem =
+                await _dynamicPlayoutItemService.CheckForFallbackFiller(
+                    dbContext,
+                    channel,
+                    now,
+                    cancellationToken);
+
+            foreach (var itemWithPath in maybePlayoutItem.RightToSeq())
+            {
+                Option<Core.Next.PlayoutItem> maybeNextPlayoutItem = await _playoutItemConverter.ToNext(
+                    channelNumber[0],
+                    itemWithPath.PlayoutItem,
+                    cancellationToken);
+
+                foreach (Core.Next.PlayoutItem nextPlayoutItem in maybeNextPlayoutItem)
+                {
+                    return Content(
+                        JsonConvert.SerializeObject(nextPlayoutItem, Core.Next.Converter.Settings),
+                        "application/json");
+                }
+            }
+
+        }
+
+        return NotFound();
     }
 
     private async Task<IActionResult> GetTsLegacyStream(string channelNumber)
